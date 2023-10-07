@@ -1,11 +1,13 @@
 const inquirer = require('inquirer');
+const connection = require('./dataBase')
+const consoleTable = require('console.table')
 
 const questions = [
     {
         type: "list",
         name: "mainMenu",
         Message: "what would you like to do?",
-        choices: ["View all Departments"]
+        choices: ["View all Departments", "place holder choice"]
     }
 ]
 
@@ -14,7 +16,7 @@ function start() {
     .prompt(questions)
     .then((answer) => {
         switch(answer.mainMenu) {
-            case 'View all departments':
+            case 'View all Departments':
                 return viewAllDepartments();
         }
     });
@@ -23,7 +25,7 @@ function start() {
 function viewAllDepartments() {
     connection.query('SELECT * FROM departments', (err, results) => {
         if (err) throw err;
-        console.log(results);
+        console.table(results);
         start()
     })
 
