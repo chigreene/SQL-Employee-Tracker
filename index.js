@@ -5,11 +5,12 @@ const questions = [
     {
         type: "list",
         name: "mainMenu",
-        Message: "what would you like to do?",
+        message: "what would you like to do?",
         choices: ["View all departments", 
                 "View all roles", 
                 "View all employees",
-                "Add employee"
+                "Add employee",
+                "Add department"
             ]
     }
 ]
@@ -28,7 +29,7 @@ function start() {
             case 'Add employee':
                 return addEmployee();
             case 'Add department':
-                return addDepartment();
+                return promptForDepartmentName();
         }
     });
 }
@@ -58,11 +59,31 @@ function viewAllEmployees() {
 }
 
 function addDepartment(deptName) {
-    connection.query(`INSERT INTO departments (name) VALUES ('${deptName}')`)
+    connection.query(`INSERT INTO departments (name) VALUES ('${deptName}')`, (err, result) => {
+        if (err) throw err;
+        console.log(`Department '${deptName}' added successfully.`);
+        start();
+    })
 }
 
 function addEmployee(){
     
+}
+
+
+function promptForDepartmentName() {
+    return inquirer
+        .prompt([
+            {
+                type: "input",
+                name: "deptName",
+                message: "Enter name of department"
+            }
+        ])
+        .then((answers) => {
+            const deptName = answers.deptName;
+            addDepartment(deptName);
+        })
 }
 
 start()
