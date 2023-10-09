@@ -1,6 +1,9 @@
+// setting a variable equal to inquirer then setting another variable equal to the path to database.js
 const inquirer = require('inquirer');
 const connection = require('./dataBase')
 
+
+// list of the questions for inquirer to ask
 const questions = [
     {
         type: "list",
@@ -9,13 +12,15 @@ const questions = [
         choices: ["View all departments", 
                 "View all roles", 
                 "View all employees",
+                "View employees by department",
                 "Add employee",
                 "Add department",
+                "Update Manager",
                 "Exit"
             ]
     }
 ]
-
+// function that runs inquirer and handles user selections with a switch statement, give the user the ability to exit the app
 function start() {
     return inquirer
     .prompt(questions)
@@ -27,12 +32,14 @@ function start() {
                 return viewAllRoles();
             case 'View all employees':
                 return viewAllEmployees();
+            case 'View employees by department':
+                return viewByDept();
             case 'Add employee':
                 return promptAddEmployee();
             case 'Add department':
                 return promptForDepartmentName();
-            case 'Add role':
-                return promptForAddRole();
+            case 'Update Manager':
+                return promptUpdateManager();
             case 'Exit':
                 console.log('Exiting the application.');
                 connection.end();
@@ -40,7 +47,7 @@ function start() {
         }
     });
 }
-// functions running in prompt functions
+// functions running in prompt functions. these functions query the database and save the results of the query as result
 
 function viewAllDepartments() {
     connection.query('SELECT * FROM departments', (err, results) => {
@@ -51,7 +58,16 @@ function viewAllDepartments() {
 }
 
 function viewAllRoles() {
-    connection.query('SELECT * FROM role', (err, results) => {
+  const query = `
+      SELECT
+        role.title,
+        role.salary,
+        departments.name AS department_id
+      FROM role
+      INNER JOIN departments ON role.department_id = departments.id;
+  `  
+  
+  connection.query(query, (err, results) => {
         if (err) throw err;
         console.table(results);
         start();
@@ -59,11 +75,44 @@ function viewAllRoles() {
 }
 
 function viewAllEmployees() {
-    connection.query('SELECT * FROM employee', (err, results) => {
+      const query = `
+        SELECT 
+            employee.id,
+            employee.first_name,
+            employee.last_name,
+            role.title AS role_title,
+            departments.name AS department_name,
+            role.salary,
+            CONCAT(manager.first_name, ' ', manager.last_name) AS manager_name
+        FROM employee
+        LEFT JOIN role ON employee.role_id = role.id
+        LEFT JOIN departments ON role.department_id = departments.id
+        LEFT JOIN employee AS manager ON employee.manager_id = manager.id;
+    `;
+    connection.query(query, (err, results) => {
         if (err) throw err;
         console.table(results);
         start();
     })
+}
+
+function viewByDept() {
+  const query = `
+    SELECT 
+      departments.name AS department_name, 
+      employee.first_name, 
+      employee.last_name 
+    FROM employee 
+    JOIN role ON employee.role_id = role.id
+    JOIN departments ON role.department_id = departments.id
+    ORDER BY departments.name, employee.last_name, employee.first_name;
+  `;
+
+  connection.query(query, (err, results) => {
+    if (err) throw err;
+    console.table(results);
+    start();
+  });
 }
 
 function addDepartment(deptName) {
@@ -88,7 +137,21 @@ function addEmployee(employeeFirstName, employeeLastName, roleId, manager, emplo
     );
 }
 
-//  helper functions
+function updateManager(employeeId, managerId) {
+  connection.query(
+    'UPDATE employee SET manager_id = ? WHERE id = ?', [managerId, employeeId], (err, result) => {
+      if (err) {
+        console.error('error updating manager:', err);
+      } else {
+        console.log(`Manager for ${employeeId} updated to ${managerId}`)
+      }
+      start();
+    }
+  );
+}
+
+
+//  helper functions that fetch data from the database to use when updating or adding to the database. The function wraps the connection.query in a promise so that it can be incorporated into the chain of asynchronous actions
 
 function fetchDepartmentNames() {
     return new Promise((resolve, reject) => {
@@ -117,7 +180,22 @@ function fetchRoles() {
 function fetchManagers() {
   return new Promise((resolve, reject) => {
     connection.query(
-      "SELECT id, last_name FROM employee WHERE manager_id IS NOT NULL",
+      "SELECT id, first_name, last_name FROM employee",
+      (err, results) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(results);
+        }
+      }
+    );
+  });
+}
+
+function fetchEmployees() {
+  return new Promise((resolve, reject) => {
+    connection.query(
+      "SELECT id, first_name, last_name FROM employee",
       (err, results) => {
         if (err) {
           reject(err);
@@ -135,9 +213,9 @@ function promptAddEmployee() {
     Promise.all([fetchDepartmentNames(), fetchRoles(), fetchManagers()])
     .then(([departmentNames, roles, managers]) => {
 
-        // maps the managers to their manager ID
+        // maps the managers to their manager ID, by design inquirer will display the name but store use the value 
         const managerChoices = managers.map(manager=> ({
-            name: manager.last_name,
+            name: `${manager.first_name} ${manager.last_name}`,
             value: manager.id
         }))
 
@@ -147,8 +225,7 @@ function promptAddEmployee() {
             value: role.id
         }))
 
-        return (
-          inquirer
+        return inquirer
             .prompt([
               {
                 type: "input",
@@ -197,7 +274,7 @@ function promptAddEmployee() {
             .catch((error) => {
               console.error("Error in promptAddEmployee:", error);
             })
-        );
+        
     })
     .catch((error) => {
     console.error("Error fetching department names:", error);
@@ -221,5 +298,50 @@ function promptForDepartmentName() {
         console.error("Error fetching department names:", error);
       });
 }
+// function to fetch managers from the data base then display them to the user to choose from when they want to update the manager for an employee. it require the update manager function
 
+function promptUpdateManager() {
+    return Promise.all([fetchManagers(), fetchEmployees()])
+        .then(([employees, managers]) => {
+
+            const employeeChoices = employees.map(employee => ({
+              name: `${employee.first_name} ${employee.last_name}`,
+              value: employee.id,
+            }));
+
+            // maps the managers to their manager ID
+            const managerChoices = managers.map(manager=> ({
+              name: `${manager.first_name} ${manager.last_name}`,
+              value: manager.id
+            }))
+
+        // because any employee can be a manager when the fetch managers function is run it gathers all employees so it is used as the choice for both the select employ question and the select new manager choice. 
+
+        // runs inquirer
+
+            return inquirer
+            .prompt([
+                {
+                    type: 'list',
+                    name: 'employee',
+                    message: 'Please select who you would like to update the manager for',
+                    choices: employeeChoices
+                },
+                {
+                    type: 'list',
+                    name: 'manager',
+                    message: 'Please select a new manager for the employee',
+                    choices: managerChoices
+                }
+            ])
+            .then((answers) =>{
+                const employeeId = answers.employee;
+                const managerId = answers.manager;
+                updateManager(employeeId, managerId)
+            })
+            .catch((error) => {
+              console.log('error in promptUpdateManager:', error)
+            })
+        })
+}
 start()
