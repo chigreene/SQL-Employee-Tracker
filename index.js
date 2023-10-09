@@ -168,6 +168,36 @@ function deleteFunction (tableName, deptName) {
   })
 }
 
+function roleDeleteFunction(roleName) {
+  const query = `
+    DELETE FROM role
+    WHERE id = ?
+  `
+  connection.query(query, [roleName], (err, result) => {
+    if(err) {
+      console.error(`Error deleting ${roleName} from role table`);
+    } else {
+      console.log(`${roleName} deleted from role table`)
+    }
+    start();
+  })
+}
+
+function employeeDeleteFunction(employeeName) {
+  const query = `
+    DELETE FROM employee
+    WHERE id = ?
+  `
+  connection.query(query, [employeeName], (err, result) => {
+    if(err) {
+      console.error(`Error deleting ${employeeName} from employees table`);
+    } else {
+      console.log(`${employeeName} deleted from the employee table`)
+    }
+    start();
+  })
+}
+
 //  helper functions that fetch data from the database to use when updating or adding to the database. The function wraps the connection.query in a promise so that it can be incorporated into the chain of asynchronous actions
 
 function fetchTables() {
@@ -381,10 +411,7 @@ function promptDelete() {
 
         const tableChoices = tables
 
-        const employeeChoices = employees.map((employee) => ({
-          name: `${employee.first_name} ${employee.last_name}`,
-          value: employee.id,
-        }));
+        
 
       return inquirer
       .prompt([
@@ -432,8 +459,34 @@ function promptDelete() {
                     message: "Select a role to delete:",
                     choices: roleChoices,
                   },
-                ]);
+                ])
+                .then(answers => {
+                  const roleName = answers.roleToDelete;
+                  roleDeleteFunction(roleName)
+                })
               })
+          case 'employee':
+            return fetchEmployees()
+            .then(employees => {
+
+              const employeeChoices = employees.map((employee) => ({
+                name: `${employee.first_name} ${employee.last_name}`,
+                value: employee.id,
+              }));
+
+              return inquirer.prompt([
+                {
+                  type: "list",
+                  name: "employeeToDelete",
+                  message: "Select a employee to delete:",
+                  choices: employeeChoices,
+                },
+              ])
+              .then(answers => {
+                const employeeName = answers.employeeToDelete
+                employeeDeleteFunction(employeeName)
+              })
+            })
         }
       })
     })
