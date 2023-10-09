@@ -13,6 +13,8 @@ const questions = [
                 "View all roles", 
                 "View all employees",
                 "View employees by department",
+                "View salaries for all employees",
+                "View salary for a specific employee",
                 "Add employee",
                 "Add department",
                 "Update Manager",
@@ -35,6 +37,10 @@ function start() {
                 return viewAllEmployees();
             case 'View employees by department':
                 return viewByDept();
+            case 'View salaries for all employees':
+                return viewAllEmployeeSalary();
+            case 'View salary for a specific employee':
+                return promptForEmployeeSalary();
             case 'Add employee':
                 return promptAddEmployee();
             case 'Add department':
@@ -112,6 +118,35 @@ function viewByDept() {
   `;
 
   connection.query(query, (err, results) => {
+    if (err) throw err;
+    console.table(results);
+    start();
+  });
+}
+
+function viewAllEmployeeSalary() {
+  const query = `
+    SELECT employee.last_name, employee.first_name, role.salary
+    FROM employee
+    INNER JOIN role 
+    ON employee.role_id = role.id;
+  `
+  connection.query(query, (err, results) => {
+    if (err) throw err;
+    console.table(results);
+    start();
+  })
+}
+
+function viewEmployeeSalary(employeeId) {
+  const query = `
+    SELECT employee.last_name, employee.first_name, role.salary
+    FROM employee
+    INNER JOIN role 
+    ON employee.role_id = role.id
+    WHERE employee.id = ?;
+  `;
+  connection.query(query, [employeeId], (err, results) => {
     if (err) throw err;
     console.table(results);
     start();
@@ -266,6 +301,7 @@ function fetchEmployees() {
     );
   });
 }
+// fetchEmployees();
 
 // prompt functions from switch statement
 
@@ -290,12 +326,12 @@ function promptAddEmployee() {
               {
                 type: "input",
                 name: "employeeFirstName",
-                message: "Add their new employee first name",
+                message: "Add the new employee's first name",
               },
               {
                 type: "input",
                 name: "employeeLastName",
-                message: "Add their new employee last name",
+                message: "Add the new employee's last name",
               },
               {
                 type: "list",
@@ -357,6 +393,29 @@ function promptForDepartmentName() {
       .catch((error) => {
         console.error("Error fetching department names:", error);
       });
+}
+
+function promptForEmployeeSalary() {
+  return fetchEmployees()
+    .then (employees => {
+      const employeeChoices = employees.map((employee) => ({
+        name: `${employee.first_name} ${employee.last_name}`,
+        value: employee.id,
+      }));
+
+      return inquirer.prompt([
+        {
+          type: "list",
+          name: "employee",
+          message: "Please select who you would like to view the salary for",
+          choices: employeeChoices,
+        },
+      ])
+      .then(answers =>{
+        const employeeId = answers.employee;
+        viewEmployeeSalary(employeeId);
+      })
+    })
 }
 // function to fetch managers from the data base then display them to the user to choose from when they want to update the manager for an employee. it require the update manager function
 
