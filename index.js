@@ -16,6 +16,7 @@ const questions = [
                 "Add employee",
                 "Add department",
                 "Update Manager",
+                "Delete",
                 "Exit"
             ]
     }
@@ -40,6 +41,8 @@ function start() {
                 return promptForDepartmentName();
             case 'Update Manager':
                 return promptUpdateManager();
+            case 'Delete':
+                return promptDelete();
             case 'Exit':
                 console.log('Exiting the application.');
                 connection.end();
@@ -150,8 +153,35 @@ function updateManager(employeeId, managerId) {
   );
 }
 
+function deleteFunction (tableName, deptName) {
+  const query = `
+      DELETE FROM ${tableName}
+      WHERE name = ?
+  `
+  connection.query(query, [deptName], (err, result) => {
+    if (err) {
+      console.error('error deleting row:', err);
+    } else {
+      console.log(`Row delete from ${deptName}`)
+    }
+    start()
+  })
+}
 
 //  helper functions that fetch data from the database to use when updating or adding to the database. The function wraps the connection.query in a promise so that it can be incorporated into the chain of asynchronous actions
+
+function fetchTables() {
+  return new Promise((resolve, reject) => {
+    connection.query('SHOW TABLES', (err, results) => {
+      if(err) {
+        reject(err)
+      } else {
+        resolve(results.map((result) => result.Tables_in_mycompany_db)
+        );
+      }
+    })
+  })
+}
 
 function fetchDepartmentNames() {
     return new Promise((resolve, reject) => {
@@ -344,4 +374,70 @@ function promptUpdateManager() {
             })
         })
 }
+
+function promptDelete() {
+    return Promise.all([fetchTables(), fetchDepartmentNames(), fetchEmployees(),  fetchRoles()])
+    .then(([tables, departments, employees, roles]) => {
+
+        const tableChoices = tables
+
+        const employeeChoices = employees.map((employee) => ({
+          name: `${employee.first_name} ${employee.last_name}`,
+          value: employee.id,
+        }));
+
+      return inquirer
+      .prompt([
+        {
+          type: "list",
+          name: "deleteSelection",
+          message: "Please select table you would like to delete from.",
+          choices: tableChoices
+        },
+      ])
+      .then(answers => {
+        switch(answers.deleteSelection) {
+          case 'departments':
+            return fetchDepartmentNames()
+              .then(departments => {
+                return inquirer.prompt([
+                  {
+                    type: 'list',
+                    name: 'departmentToDelete',
+                    message: 'Select a department to delete:',
+                    choices: departments
+                  },
+
+                ])
+                .then(answer => {
+                  const deptName = answer.departmentToDelete;
+                  const tableName = answers.deleteSelection;
+                  deleteFunction(tableName, deptName)
+                  console.log(`Delete department: ${deptName}`);
+                })
+              })
+          case 'role':
+            return fetchRoles()
+              .then(roles => {
+
+                const roleChoices = roles.map((role) => ({
+                  name: `${role.title}`,
+                  value: role.id,
+                }));
+                
+                return inquirer.prompt([
+                  {
+                    type: "list",
+                    name: "roleToDelete",
+                    message: "Select a role to delete:",
+                    choices: roleChoices,
+                  },
+                ]);
+              })
+        }
+      })
+    })
+  
+}
+
 start()
