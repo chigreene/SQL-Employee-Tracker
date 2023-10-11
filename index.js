@@ -1,6 +1,9 @@
 // setting a variable equal to inquirer then setting another variable equal to the path to database.js
 const inquirer = require('inquirer');
 const connection = require('./dataBase')
+const mySqlQuery = require('./classes')
+// creating an instance of the constructor class
+const mySqlInstance = new mySqlQuery(connection);
 
 
 // list of the questions for inquirer to ask
@@ -75,7 +78,6 @@ function viewAllRoles() {
       FROM role
       INNER JOIN departments ON role.department_id = departments.id;
   `  
-  
   connection.query(query, (err, results) => {
         if (err) throw err;
         console.table(results);
@@ -396,7 +398,7 @@ function promptForDepartmentName() {
 }
 
 function promptForEmployeeSalary() {
-  return fetchEmployees()
+    return fetchEmployees()
     .then (employees => {
       const employeeChoices = employees.map((employee) => ({
         name: `${employee.first_name} ${employee.last_name}`,
@@ -465,12 +467,9 @@ function promptUpdateManager() {
 }
 
 function promptDelete() {
-    return Promise.all([fetchTables(), fetchDepartmentNames(), fetchEmployees(),  fetchRoles()])
-    .then(([tables, departments, employees, roles]) => {
-
+    return fetchTables()
+    .then((tables) => {
         const tableChoices = tables
-
-        
 
       return inquirer
       .prompt([
@@ -485,23 +484,23 @@ function promptDelete() {
         switch(answers.deleteSelection) {
           case 'departments':
             return fetchDepartmentNames()
-              .then(departments => {
-                return inquirer.prompt([
-                  {
-                    type: 'list',
-                    name: 'departmentToDelete',
-                    message: 'Select a department to delete:',
-                    choices: departments
-                  },
+            .then(departments => {
+              return inquirer.prompt([
+                {
+                  type: 'list',
+                  name: 'departmentToDelete',
+                  message: 'Select a department to delete:',
+                  choices: departments
+                },
 
-                ])
-                .then(answer => {
-                  const deptName = answer.departmentToDelete;
-                  const tableName = answers.deleteSelection;
-                  deleteFunction(tableName, deptName)
-                  console.log(`Delete department: ${deptName}`);
-                })
+              ])
+              .then(answer => {
+                const deptName = answer.departmentToDelete;
+                const tableName = answers.deleteSelection;
+                deleteFunction(tableName, deptName)
+                console.log(`Delete department: ${deptName}`);
               })
+            })
           case 'role':
             return fetchRoles()
               .then(roles => {
