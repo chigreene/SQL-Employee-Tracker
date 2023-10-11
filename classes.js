@@ -1,75 +1,43 @@
-class mySqlQuery {
+class Database {
+
     constructor(connection) {
         this.connection = connection;
     }
-    // gets roles form roles table
-    fetchTables() {
-    return new Promise((resolve, reject) => {
-        connection.query('SHOW TABLES', (err, results) => {
-        if(err) {
-            reject(err)
-        } else {
-            resolve(results.map((result) => result.Tables_in_mycompany_db)
-            );
-        }
+
+    query(sql, args) {
+        return new Promise ((resolve, reject) => {
+            this.connection.query(sql, args, (err, rows) => {
+                if (err) return reject (err);
+                resolve(rows)
+            })
         })
-    })
     }
 
-    fetchDepartmentNames() {
+    close() {
         return new Promise((resolve, reject) => {
-            connection.query('SELECT name FROM departments', (err, results) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(results.map((result) => result.name));
-                }
-            });
-        });
+            this.connection.end(err => {
+                if (err) return reject(err);
+                resolve();
+            })
+        })
     }
-
-    fetchRoles() {
-    return new Promise((resolve, reject) => {
-        connection.query("SELECT id, title FROM role", (err, results) => {
-        if (err) {
-            reject(err);
-        } else {
-            resolve(results);
-        }
-        });
-    });
-    }
-
-    fetchManagers() {
-    return new Promise((resolve, reject) => {
-        connection.query(
-        "SELECT id, first_name, last_name FROM employee",
-        (err, results) => {
-            if (err) {
-            reject(err);
-            } else {
-            resolve(results);
-            }
-        }
-        );
-    });
-    }
-
-    fetchEmployees() {
-    return new Promise((resolve, reject) => {
-        connection.query(
-        "SELECT id, first_name, last_name FROM employee",
-        (err, results) => {
-            if (err) {
-            reject(err);
-            } else {
-            resolve(results);
-            }
-        }
-        );
-    });
-    }
-    
 }
 
-module.exports = mySqlQuery
+class Department {
+    constructor(database){
+        this.db=database;
+    }
+
+    deleteByName(name) {
+        return this.db.query('DELETE FROM departments WHERE name = ?', [name]);
+    }
+
+    fetchNames() {
+        return this.db.query('SELECT name FROM departments')
+    }
+}
+
+module.exports = {
+    Database,
+    Department
+}

@@ -1,9 +1,12 @@
 // setting a variable equal to inquirer then setting another variable equal to the path to database.js
 const inquirer = require('inquirer');
 const connection = require('./dataBase')
-const mySqlQuery = require('./classes')
+const { Department, Database} = require("./classes");
 // creating an instance of the constructor class
-const mySqlInstance = new mySqlQuery(connection);
+
+const db = new Database(connection);
+const department = new Department(db);
+
 
 
 // list of the questions for inquirer to ask
@@ -33,7 +36,9 @@ function start() {
     .then((answer) => {
         switch(answer.mainMenu) {
             case 'View all departments':
-                return viewAllDepartments();
+                return department.fetchNames().then((names) => {
+                  console.table(names);
+                });
             case 'View all roles':
                 return viewAllRoles();
             case 'View all employees':
@@ -61,13 +66,17 @@ function start() {
 }
 // functions running in prompt functions. these functions query the database and save the results of the query as result
 
-function viewAllDepartments() {
-    connection.query('SELECT * FROM departments', (err, results) => {
-        if (err) throw err;
-        console.table(results);
-        start();
-    })
-}
+// uses object orientated programming to view all departments
+
+
+
+// function viewAllDepartments() {
+//     connection.query('SELECT * FROM departments', (err, results) => {
+//         if (err) throw err;
+//         console.table(results);
+//         start();
+//     })
+// }
 
 function viewAllRoles() {
   const query = `
