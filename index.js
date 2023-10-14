@@ -13,11 +13,14 @@ const questions = [
                 "View all roles", 
                 "View all employees",
                 "View employees by department",
+                "View employees by manager",
                 "View salaries for all employees",
                 "View salary for a specific employee",
+                "View the budget of a department",
                 "Add employee",
                 "Add department",
                 "Update Manager",
+                "Update Role",
                 "Delete",
                 "Exit"
             ]
@@ -37,16 +40,22 @@ function start() {
                 return viewAllEmployees();
             case 'View employees by department':
                 return viewByDept();
+            case 'View employees by manager':
+                return promptManagerEmployees();
             case 'View salaries for all employees':
                 return viewAllEmployeeSalary();
             case 'View salary for a specific employee':
                 return promptForEmployeeSalary();
+            case 'View the budget of a department':
+                return viewDeptBudget();
             case 'Add employee':
                 return promptAddEmployee();
             case 'Add department':
                 return promptForDepartmentName();
             case 'Update Manager':
                 return promptUpdateManager();
+            case 'Update Role':
+                return promptUpdateRole();
             case 'Delete':
                 return promptDelete();
             case 'Exit':
@@ -124,6 +133,20 @@ function viewByDept() {
   });
 }
 
+function viewByManager(managerId) {
+  const query = `
+    SELECT * 
+    FROM employee
+    WHERE manager_id = ?
+  `
+
+  connection.query(query, [managerId], (err, results) => {
+    if (err) throw err;
+    console.table(results);
+    start();
+  })
+}
+
 function viewAllEmployeeSalary() {
   const query = `
     SELECT employee.last_name, employee.first_name, role.salary
@@ -151,6 +174,22 @@ function viewEmployeeSalary(employeeId) {
     console.table(results);
     start();
   });
+}
+
+function viewDeptBudget() {
+  const query = `
+    SELECT departments.name AS department_name, SUM(role.salary) AS department_budget
+    FROM employee
+    JOIN role ON employee.role_id = role.id
+    JOIN departments ON role.department_id = departments.id
+    GROUP BY departments.name;
+  `
+
+  connection.query(query, (err, results) => {
+    if (err) throw err;
+    console.table(results)
+    start();
+  })
 }
 
 function addDepartment(deptName) {
@@ -186,6 +225,19 @@ function updateManager(employeeId, managerId) {
       start();
     }
   );
+}
+
+function updateRole(employeeId, newRole) {
+  const query = `
+    UPDATE employee 
+    SET role_id = ? 
+    WHERE id = ?
+  `
+  connection.query(query, [newRole, employeeId], (err, results) => {
+    if (err) throw err;
+    console.table(results);
+    start();
+  })
 }
 
 function deleteFunction (tableName, deptName) {
@@ -271,6 +323,18 @@ function fetchRoles() {
     });
   });
 }
+
+// function allFetchRoles() {
+//   return new Promise((resolve, reject) => {
+//     connection.query("SELECT * FROM role", (err, results) => {
+//       if (err) {
+//         reject(err);
+//       } else {
+//         resolve(results);
+//       }
+//     });
+//   });
+// }
 
 function fetchManagers() {
   return new Promise((resolve, reject) => {
@@ -395,6 +459,29 @@ function promptForDepartmentName() {
       });
 }
 
+function promptManagerEmployees() {
+  return fetchManagers().then((managers) => {
+    const managerChoices = managers.map((manager) => ({
+      name: `${manager.first_name} ${manager.last_name}`,
+      value: manager.id,
+    }));
+
+    return inquirer
+      .prompt([
+        {
+          type: "list",
+          name: "manager",
+          message: "Please select which manager whose employees you would like to view",
+          choices: managerChoices,
+        },
+      ])
+      .then((answers) => {
+        const managerId = answers.manager;
+        viewByManager(managerId);
+      });
+  });
+}
+
 function promptForEmployeeSalary() {
   return fetchEmployees()
     .then (employees => {
@@ -464,13 +551,65 @@ function promptUpdateManager() {
         })
 }
 
+function promptUpdateRole() {
+  return Promise.all([fetchEmployees(), fetchRoles()])
+  .then(([employees, roles]) => {
+    
+    const employeeChoices = employees.map((employee) => ({
+      name: `${employee.first_name} ${employee.last_name}`,
+      value: employee.id,
+    }));
+    
+    const roleChoices = roles.map((role) => ({
+      name: `${role.title}`,
+      value: role.id,
+    }));
+
+    return inquirer
+      .prompt([
+        {
+          type: "list",
+          name: "employee",
+          message: "Select an employee to update the role for",
+          choices: [...employeeChoices, "Return to Start"],
+        },
+      ])
+      .then((answers) => {
+        if (answers.employee === "Return to Start") {
+          console.log("user want to go to begining");
+          start();
+          return;
+        }
+        const employeeId = answers.employee
+        console.log(answers.employee);
+
+        return inquirer
+          .prompt([
+            {
+              type: "list",
+              name: "roleChoice",
+              message: "Select a new role to assign to the employee",
+              choices: [...roleChoices, "Return to Start"],
+            },
+          ])
+          .then((answers) => {
+            if (answers.roleChoice === "Return to Start") {
+              start();
+              return;
+            }
+            const newRole = answers.roleChoice
+            console.log(newRole);
+            updateRole(employeeId, newRole);
+          });
+      });
+  })
+}
+
 function promptDelete() {
     return Promise.all([fetchTables(), fetchDepartmentNames(), fetchEmployees(),  fetchRoles()])
     .then(([tables, departments, employees, roles]) => {
 
         const tableChoices = tables
-
-        
 
       return inquirer
       .prompt([
@@ -478,40 +617,38 @@ function promptDelete() {
           type: "list",
           name: "deleteSelection",
           message: "Please select table you would like to delete from.",
-          choices: tableChoices
+          choices: [...tableChoices, 'Return to Start']
         },
       ])
       .then(answers => {
-        switch(answers.deleteSelection) {
-          case 'departments':
-            return fetchDepartmentNames()
-              .then(departments => {
-                return inquirer.prompt([
+        switch (answers.deleteSelection) {
+          case "departments":
+            return fetchDepartmentNames().then((departments) => {
+              return inquirer
+                .prompt([
                   {
-                    type: 'list',
-                    name: 'departmentToDelete',
-                    message: 'Select a department to delete:',
-                    choices: departments
+                    type: "list",
+                    name: "departmentToDelete",
+                    message: "Select a department to delete:",
+                    choices: departments,
                   },
-
                 ])
-                .then(answer => {
+                .then((answer) => {
                   const deptName = answer.departmentToDelete;
                   const tableName = answers.deleteSelection;
-                  deleteFunction(tableName, deptName)
+                  deleteFunction(tableName, deptName);
                   console.log(`Delete department: ${deptName}`);
-                })
-              })
-          case 'role':
-            return fetchRoles()
-              .then(roles => {
+                });
+            });
+          case "role":
+            return fetchRoles().then((roles) => {
+              const roleChoices = roles.map((role) => ({
+                name: `${role.title}`,
+                value: role.id,
+              }));
 
-                const roleChoices = roles.map((role) => ({
-                  name: `${role.title}`,
-                  value: role.id,
-                }));
-                
-                return inquirer.prompt([
+              return inquirer
+                .prompt([
                   {
                     type: "list",
                     name: "roleToDelete",
@@ -519,33 +656,34 @@ function promptDelete() {
                     choices: roleChoices,
                   },
                 ])
-                .then(answers => {
+                .then((answers) => {
                   const roleName = answers.roleToDelete;
-                  roleDeleteFunction(roleName)
-                })
-              })
-          case 'employee':
-            return fetchEmployees()
-            .then(employees => {
-
+                  roleDeleteFunction(roleName);
+                });
+            });
+          case "employee":
+            return fetchEmployees().then((employees) => {
               const employeeChoices = employees.map((employee) => ({
                 name: `${employee.first_name} ${employee.last_name}`,
                 value: employee.id,
               }));
 
-              return inquirer.prompt([
-                {
-                  type: "list",
-                  name: "employeeToDelete",
-                  message: "Select a employee to delete:",
-                  choices: employeeChoices,
-                },
-              ])
-              .then(answers => {
-                const employeeName = answers.employeeToDelete
-                employeeDeleteFunction(employeeName)
-              })
-            })
+              return inquirer
+                .prompt([
+                  {
+                    type: "list",
+                    name: "employeeToDelete",
+                    message: "Select a employee to delete:",
+                    choices: employeeChoices,
+                  },
+                ])
+                .then((answers) => {
+                  const employeeName = answers.employeeToDelete;
+                  employeeDeleteFunction(employeeName);
+                });
+            });
+          case "Return to Start":
+            start();
         }
       })
     })
