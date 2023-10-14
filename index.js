@@ -39,7 +39,7 @@ function start() {
             case 'View all employees':
                 return viewAllEmployees();
             case 'View employees by department':
-                return viewByDept();
+                return promptViewDept();
             case 'View employees by manager':
                 return promptManagerEmployees();
             case 'View salaries for all employees':
@@ -114,7 +114,7 @@ function viewAllEmployees() {
     })
 }
 
-function viewByDept() {
+function viewByDept(department) {
   const query = `
     SELECT 
       departments.name AS department_name, 
@@ -123,10 +123,11 @@ function viewByDept() {
     FROM employee 
     JOIN role ON employee.role_id = role.id
     JOIN departments ON role.department_id = departments.id
+    WHERE departments.name = ?
     ORDER BY departments.name, employee.last_name, employee.first_name;
   `;
 
-  connection.query(query, (err, results) => {
+  connection.query(query, [department], (err, results) => {
     if (err) throw err;
     console.table(results);
     start();
@@ -368,6 +369,27 @@ function fetchEmployees() {
 // fetchEmployees();
 
 // prompt functions from switch statement
+
+function promptViewDept() {
+  fetchDepartmentNames().then((departments) => {
+    const deptChoices = departments;
+
+    return inquirer.prompt([
+      {
+        type: "list",
+        name: "dept",
+        message:
+          "Please select which department's employees you would like to view",
+        choices: deptChoices,
+      },
+    ])
+    .then(answers => {
+      const department = answers.dept;
+      viewByDept(department);
+    })
+  });
+
+}
 
 function promptAddEmployee() {
     Promise.all([fetchDepartmentNames(), fetchRoles(), fetchManagers()])
