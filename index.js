@@ -17,7 +17,7 @@ const questions = [
                 "View employees by manager",
                 "View salaries for all employees",
                 "View salary for a specific employee",
-                "View the budget of a department",
+                "View the budgets of the department",
                 "Add employee",
                 "Add department",
                 "Add role",
@@ -48,7 +48,7 @@ function start() {
                 return viewAllEmployeeSalary();
             case 'View salary for a specific employee':
                 return promptForEmployeeSalary();
-            case 'View the budget of a department':
+            case 'View the budgets of the department':
                 return viewDeptBudget();
             case 'Add employee':
                 return promptAddEmployee();
@@ -188,12 +188,9 @@ function viewDeptBudget() {
     FROM role
     JOIN departments 
     ON role.department_id = departments.id
+    JOIN employee ON role.id = employee.role_id
     GROUP BY departments.name;
   `
-  const query2 = `
-    SELECT department.id 
-  `
-
   connection.query(query, (err, results) => {
     if (err) throw err;
     console.table(results)
