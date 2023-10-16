@@ -71,6 +71,10 @@ function start() {
 }
 // functions running in prompt functions. these functions query the database and save the results of the query as result
 
+// uses object orientated programming to view all departments
+
+
+
 function viewAllDepartments() {
     connection.query('SELECT * FROM departments', (err, results) => {
         if (err) throw err;
@@ -88,7 +92,6 @@ function viewAllRoles() {
       FROM role
       INNER JOIN departments ON role.department_id = departments.id;
   `  
-  
   connection.query(query, (err, results) => {
         if (err) throw err;
         console.table(results);
@@ -561,7 +564,7 @@ function promptManagerEmployees() {
 }
 
 function promptForEmployeeSalary() {
-  return fetchEmployees()
+    return fetchEmployees()
     .then (employees => {
       const employeeChoices = employees.map((employee) => ({
         name: `${employee.first_name} ${employee.last_name}`,
@@ -684,9 +687,8 @@ function promptUpdateRole() {
 }
 
 function promptDelete() {
-    return Promise.all([fetchTables(), fetchDepartmentNames(), fetchEmployees(),  fetchRoles()])
-    .then(([tables, departments, employees, roles]) => {
-
+    return fetchTables()
+    .then((tables) => {
         const tableChoices = tables
 
       return inquirer
@@ -699,34 +701,36 @@ function promptDelete() {
         },
       ])
       .then(answers => {
-        switch (answers.deleteSelection) {
-          case "departments":
-            return fetchDepartmentNames().then((departments) => {
-              return inquirer
-                .prompt([
-                  {
-                    type: "list",
-                    name: "departmentToDelete",
-                    message: "Select a department to delete:",
-                    choices: departments,
-                  },
-                ])
-                .then((answer) => {
-                  const deptName = answer.departmentToDelete;
-                  const tableName = answers.deleteSelection;
-                  deleteFunction(tableName, deptName);
-                  console.log(`Delete department: ${deptName}`);
-                });
-            });
-          case "role":
-            return fetchRoles().then((roles) => {
-              const roleChoices = roles.map((role) => ({
-                name: `${role.title}`,
-                value: role.id,
-              }));
+        switch(answers.deleteSelection) {
+          case 'departments':
+            return fetchDepartmentNames()
+            .then(departments => {
+              return inquirer.prompt([
+                {
+                  type: 'list',
+                  name: 'departmentToDelete',
+                  message: 'Select a department to delete:',
+                  choices: departments
+                },
 
-              return inquirer
-                .prompt([
+              ])
+              .then(answer => {
+                const deptName = answer.departmentToDelete;
+                const tableName = answers.deleteSelection;
+                deleteFunction(tableName, deptName)
+                console.log(`Delete department: ${deptName}`);
+              })
+            })
+          case 'role':
+            return fetchRoles()
+              .then(roles => {
+
+                const roleChoices = roles.map((role) => ({
+                  name: `${role.title}`,
+                  value: role.id,
+                }));
+                
+                return inquirer.prompt([
                   {
                     type: "list",
                     name: "roleToDelete",
