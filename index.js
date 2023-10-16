@@ -1,6 +1,7 @@
 // setting a variable equal to inquirer then setting another variable equal to the path to database.js
 const inquirer = require('inquirer');
 const connection = require('./dataBase')
+// require('console.table');
 
 
 // list of the questions for inquirer to ask
@@ -19,6 +20,7 @@ const questions = [
                 "View the budget of a department",
                 "Add employee",
                 "Add department",
+                "Add role",
                 "Update Manager",
                 "Update Role",
                 "Delete",
@@ -54,6 +56,8 @@ function start() {
                 return promptForDepartmentName();
             case 'Update Manager':
                 return promptUpdateManager();
+            case 'Add role':
+                return promptAddRole();
             case 'Update Role':
                 return promptUpdateRole();
             case 'Delete':
@@ -118,8 +122,9 @@ function viewByDept(department) {
   const query = `
     SELECT 
       departments.name AS department_name, 
-      employee.first_name, 
-      employee.last_name 
+      CONCAT(employee.first_name, ' ', employee.last_name) AS employee_name,
+      role.title,
+      role.salary 
     FROM employee 
     JOIN role ON employee.role_id = role.id
     JOIN departments ON role.department_id = departments.id
@@ -136,7 +141,7 @@ function viewByDept(department) {
 
 function viewByManager(managerId) {
   const query = `
-    SELECT * 
+    SELECT CONCAT(first_name, ' ', last_name) AS employee_name 
     FROM employee
     WHERE manager_id = ?
   `
@@ -179,11 +184,14 @@ function viewEmployeeSalary(employeeId) {
 
 function viewDeptBudget() {
   const query = `
-    SELECT departments.name AS department_name, SUM(role.salary) AS department_budget
-    FROM employee
-    JOIN role ON employee.role_id = role.id
-    JOIN departments ON role.department_id = departments.id
+    SELECT SUM(role.salary) AS department_budget, departments.name
+    FROM role
+    JOIN departments 
+    ON role.department_id = departments.id
     GROUP BY departments.name;
+  `
+  const query2 = `
+    SELECT department.id 
   `
 
   connection.query(query, (err, results) => {
@@ -199,6 +207,17 @@ function addDepartment(deptName) {
         console.log(`Department '${deptName}' added successfully.`);
         start();
     })
+}
+
+function addRole(roleName, roleSalary, roleDept) {
+  const query = `
+    INSERT INTO role (title, salary, department_id)
+    VALUES (?, ?, ?);
+  `
+  connection.query(query, [roleName, roleSalary, roleDept], (err, results) => {
+    if (err) throw err;
+    start();
+  })
 }
 
 function addEmployee(employeeFirstName, employeeLastName, roleId, manager, employeeDept){
@@ -313,6 +332,18 @@ function fetchDepartmentNames() {
     });
 }
 
+function fetchDepartments() {
+    return new Promise((resolve, reject) => {
+      connection.query("SELECT * FROM departments", (err, results) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(results);
+        }
+      });
+    });
+}
+
 function fetchRoles() {
   return new Promise((resolve, reject) => {
     connection.query("SELECT id, title FROM role", (err, results) => {
@@ -324,18 +355,6 @@ function fetchRoles() {
     });
   });
 }
-
-// function allFetchRoles() {
-//   return new Promise((resolve, reject) => {
-//     connection.query("SELECT * FROM role", (err, results) => {
-//       if (err) {
-//         reject(err);
-//       } else {
-//         resolve(results);
-//       }
-//     });
-//   });
-// }
 
 function fetchManagers() {
   return new Promise((resolve, reject) => {
@@ -366,7 +385,6 @@ function fetchEmployees() {
     );
   });
 }
-// fetchEmployees();
 
 // prompt functions from switch statement
 
@@ -461,6 +479,47 @@ function promptAddEmployee() {
     .catch((error) => {
     console.error("Error fetching department names:", error);
     });
+}
+
+function promptAddRole() {
+  fetchDepartments()
+  .then((departments) =>{
+
+    const departmentChoices = departments.map((department) => ({
+      name: `${department.name}`,
+      value: department.id,
+    }));
+
+    return inquirer
+      .prompt([
+        {
+          type: "input",
+          name: "roleName",
+          message: "Add the new role in the company.",
+        },
+        {
+          type: "input",
+          name: "roleSalary",
+          message: "Add the salary of this role.",
+        },
+        {
+          type: "list",
+          name: "roleDept",
+          message: "Select which department this role is in.",
+          choices: departmentChoices,
+        },
+      ])
+      .then((answers) => {
+        const roleName = answers.roleName;
+        const roleSalary = answers.roleSalary;
+        const roleDept = answers.roleDept;
+        addRole(roleName, roleSalary, roleDept);
+      })
+      .catch((error) => {
+        console.error("Error in promptAddRole:", error);
+      });
+    
+  })
 }
 
 function promptForDepartmentName() {

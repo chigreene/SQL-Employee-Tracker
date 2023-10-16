@@ -36,7 +36,7 @@ Once a user selects all require field a table is generated and output to the ter
 
 Below is a view walking through the features of the application
 
-https://drive.google.com/file/d/1P7hFD5nvD2bIouDDBBqTrE0Faw1xLyxz/view
+https://drive.google.com/file/d/1YpXwiDFG0Fs1pzlvGy2dysYW5WOuclhC/view
 
 ## Credits
 Meg Myers, Ross, Addison, EdX, ChatGPT, Traversy Media
